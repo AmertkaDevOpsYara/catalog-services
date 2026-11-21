@@ -10,13 +10,11 @@
 #   - double-brace names are filled by the platform from the deploy form; dollar-brace names are read by compose from the env file
 services:
   grafana:
-    image: pcr.amertka.com/grafana/grafana-oss:{{ imageTag }}
+    image: {{ IMAGE }}:{{ IMAGE_Tag }}
     restart: unless-stopped
     depends_on:
       grafana-db:
         condition: service_healthy
-    ports:
-      - "{{ port }}:3000"
     environment:
       GF_DATABASE_TYPE: postgres
       GF_DATABASE_HOST: grafana-db:5432
@@ -29,21 +27,21 @@ services:
       GF_SECURITY_DISABLE_GRAVATAR: "true"
       GF_LOG_LEVEL: info
     volumes:
-      - grafana_data:/var/lib/grafana
+      - {{ CUSTOMER_VOLUME }}:/var/lib/grafana
     networks:
-      - app_net
+      - {{ CUSTOMER_NET }}
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: 512M
+          cpus: {{ CPU }}
+          memory: {{ MEMORY }}
 
   grafana-db:
-    image: pcr.amertka.com/library/postgres:16
+    image: {{ IMAGE_POSTGRES }}:{{ POSTGRES_TAG }}
     restart: unless-stopped
     environment:
       POSTGRES_DB: grafana
-      POSTGRES_USER: grafana
+      POSTGRES_USER: {{ POSTGRES_USER }}
       POSTGRES_PASSWORD: ${GRAFANA_DB_PASSWORD}
     volumes:
       - grafana_db:/var/lib/postgresql/data
@@ -53,18 +51,22 @@ services:
       timeout: 3s
       retries: 20
     networks:
-      - app_net
+      - {{ CUSTOMER_NET }}
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: 512M
+          cpus: {{ CPU_DB_GRAFANA }}
+          memory: {{ MEMORY_DB_GRAFANA }}
 
 volumes:
-  grafana_data: {}
-  grafana_db: {}
+  {{ GRAFANA_DATA }}:
+    name: {{ GRAFANA_DATA }}
+    external: true
+  {{ GRAFANA_DB }}:
+    name: {{ GRAFANA_DB }}
+    external: true
 
 networks:
-  app_net:
+  {{ GRAFANA_NET }}:
     external: true
     name: "{{ portal.network }}"
