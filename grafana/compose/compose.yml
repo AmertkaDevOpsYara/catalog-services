@@ -1,0 +1,83 @@
+# Grafana for the platform service catalog (shared VM and customer VM).
+#
+# Rules of the platform compose policy this file follows:
+#   - every service has CPU and memory limits
+#   - the only network is the project's own Docker network (portal.network, filled by the platform), declared external
+#     (on a customer's own VM the platform lets compose create it for the deployment)
+#   - no container_name, no published ports (several customers may deploy it on one VM), no fixed volume names, no
+#     external volumes (the compose project name keeps the volumes unique per deployment)
+#   - no bind mounts (the platform sends only this file to the VM)
+#   - secrets are never written here: GF_ADMIN_PASSWORD and GRAFANA_DB_PASSWORD are Secret Manager bindings
+#     (template.secrets) and reach compose through the env file
+#   - double-brace names are filled by the platform from the deploy form (every one has a default in the
+#     configurationSchema); dollar-brace names are read by compose from the env file
+#   - every double-brace value is inside quotes: the file is parsed as YAML before the names are filled
+services:
+  grafana:
+    image: "{{ registry }}/{{ grafanaImage }}:{{ imageTag }}"
+    restart: unless-stopped
+    depends_on:
+      grafana-db:
+        condition: service_healthy
+    expose:
+      - "3000"
+    environment:
+      GF_DATABASE_TYPE: postgres
+      GF_DATABASE_HOST: grafana-db:5432
+      GF_DATABASE_NAME: "{{ dbName }}"
+      GF_DATABASE_USER: "{{ dbUser }}"
+      GF_DATABASE_PASSWORD: ${GRAFANA_DB_PASSWORD}
+      GF_DATABASE_SSL_MODE: disable
+      GF_SECURITY_ADMIN_USER: "{{ adminUser }}"
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_ADMIN_PASSWORD}
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      GF_SERVER_ROOT_URL: "{{ rootUrl }}"
+      GF_USERS_ALLOW_SIGN_UP: "{{ allowSignUp }}"
+      GF_AUTH_ANONYMOUS_ENABLED: "{{ anonymousAccess }}"
+      GF_USERS_DEFAULT_THEME: "{{ defaultTheme }}"
+      GF_DATE_FORMATS_DEFAULT_TIMEZONE: "{{ timezone }}"
+      GF_INSTALL_PLUGINS: "{{ installPlugins }}"
+      GF_LOG_LEVEL: "{{ logLevel }}"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - app_net
+    deploy:
+      resources:
+        limits:
+          cpus: "{{ cpu }}"
+          memory: "{{ memory }}"
+
+  grafana-db:
+    image: "{{ registry }}/{{ dbImage }}:{{ dbTag }}"
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "{{ dbName }}"
+      POSTGRES_USER: "{{ dbUser }}"
+      POSTGRES_PASSWORD: ${GRAFANA_DB_PASSWORD}
+    volumes:
+      - grafana_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ dbUser }} -d {{ dbName }}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - app_net
+    deploy:
+      resources:
+        limits:
+          cpus: "{{ dbCpu }}"
+          memory: "{{ dbMemory }}"
+
+volumes:
+  # the customer may choose one of their own volumes (made under Infrastructure > Virtual machines) for the Grafana
+  # data; with no choice the platform leaves this entry to compose, which makes a volume for the deployment
+  grafana_data:
+    name: "{{ portal.volume }}"
+  grafana_db: {}
+
+networks:
+  app_net:
+    external: true
+    name: "{{ portal.network }}"
