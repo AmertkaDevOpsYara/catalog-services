@@ -4,8 +4,8 @@
 #   - every service has CPU and memory limits
 #   - the only network is the project's own Docker network (portal.network, filled by the platform), declared external
 #     (on a customer's own VM the platform lets compose create it for the deployment)
-#   - no container_name, no fixed volume names, no external volumes (the compose project name keeps the volumes
-#     unique per deployment)
+#   - no container_name, no published ports (several customers may deploy it on one VM), no fixed volume names, no
+#     external volumes (the compose project name keeps the volumes unique per deployment)
 #   - no bind mounts (the platform sends only this file to the VM)
 #   - secrets are never written here: GF_ADMIN_PASSWORD and GRAFANA_DB_PASSWORD are Secret Manager bindings
 #     (template.secrets) and reach compose through the env file
@@ -19,8 +19,8 @@ services:
     depends_on:
       grafana-db:
         condition: service_healthy
-    ports:
-      - "{{ port }}:3000"
+    expose:
+      - "3000"
     environment:
       GF_DATABASE_TYPE: postgres
       GF_DATABASE_HOST: grafana-db:5432
@@ -71,7 +71,10 @@ services:
           memory: "{{ dbMemory }}"
 
 volumes:
-  grafana_data: {}
+  # the customer may choose one of their own volumes (made under Infrastructure > Virtual machines) for the Grafana
+  # data; with no choice the platform leaves this entry to compose, which makes a volume for the deployment
+  grafana_data:
+    name: "{{ portal.volume }}"
   grafana_db: {}
 
 networks:
