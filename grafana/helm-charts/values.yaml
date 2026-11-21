@@ -1,0 +1,27 @@
+# Defaults of every value the deploy form sends (the same names and defaults as the configurationSchema of the catalog
+# entry). The platform sends all of them, plus `portal` (name, namespace and, when the customer chose a volume claim,
+# pvc); the defaults only matter for `helm template` by hand.
+registry: pcr.amertka.com
+grafanaImage: grafana/grafana-oss
+imageTag: "12.3.3"
+adminUser: admin
+rootUrl: "http://localhost:3000/"
+allowSignUp: "false"
+anonymousAccess: "false"
+defaultTheme: dark
+timezone: browser
+installPlugins: ""
+logLevel: info
+cpu: "0.5"
+memory: 512M
+dbImage: library/postgres
+dbTag: "16"
+dbName: grafana
+dbUser: grafana
+dbCpu: "0.5"
+dbMemory: 512M
+
+portal:
+  name: grafana
+  namespace: default
+  pvc: ""
